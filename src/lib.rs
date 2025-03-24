@@ -59,21 +59,26 @@ impl Cache {
         })
     }
 
-    /// Wrapper of the [`Cache::get`] function, accepting a closure for retrieving and then saving the value if the value is not present already or invalid.
-    pub fn get_or<T, F>(&mut self, key: &str, fetch: F) -> Result<T>
+    /// Wrapper of the [`Cache::get`] function, accepting a closure for retrieving and then setting the value if the value is not present already or invalid.
+    pub fn get_or<T, F, E>(&mut self, key: &str, fetch: F) -> Result<T, E>
     where
         T: Serialize + DeserializeOwned + Clone,
-        F: FnOnce() -> Result<T>,
+        F: FnOnce() -> Result<T, E>,
+        E: From<serde_json::Error> + From<std::io::Error>,
     {
         if let Some(data) = self.get::<T>(key) {
             return Ok(data);
         }
         let value = fetch()?;
-        self.save(key, value)
+        self.set(key, value)
     }
 
-    /// Save a value under a key to the cache store, returning that same value.
-    pub fn save<T: Serialize>(&mut self, key: &str, value: T) -> Result<T> {
+    /// Set a value under a key to the cache store, returning that same value.
+    pub fn set<T: Serialize, E: From<serde_json::Error>>(
+        &mut self,
+        key: &str,
+        value: T,
+    ) -> Result<T, E> {
         self.entries.insert(
             key.to_string(),
             Entry {
@@ -81,12 +86,23 @@ impl Cache {
                 data: serde_json::to_value(&value)?,
             },
         );
-        self.save_to_file()?;
         Ok(value)
     }
 
+    /// Set a value under a key to the cache store, immediately writing the cache to the filesystem.
+    /// This is a convenience wrapper for [`Cache::set`] and [`Cache::save_to_file`].
+    pub fn save<T, E>(&mut self, key: &str, value: T) -> Result<(), E>
+    where
+        T: Serialize,
+        E: From<serde_json::Error> + From<std::io::Error>,
+    {
+        self.set::<T, E>(key, value)?;
+        self.write_to_file()?;
+        Ok(())
+    }
+
     /// Save the cache to the store path (specified at cache initialization).
-    fn save_to_file(&self) -> io::Result<()> {
+    fn write_to_file(&self) -> io::Result<()> {
         let mut file = fs::File::create(&self.path)?;
         file.write_all(serde_json::to_string(&self.entries)?.as_bytes())
     }
