@@ -114,9 +114,13 @@ impl Cache {
         Ok(())
     }
 
-    /// Clear all entries from the cache and flush to disk.
+    /// Clear all entries from the cache.
+    /// If [`FlushPolicy::Auto`] is set, the cache is flushed to disk after clearing.
     pub fn clear(&mut self) -> Result<()> {
         self.entries.clear();
-        self.flush()
+        if self.flush_policy == FlushPolicy::Auto {
+            self.flush()?;
+        };
+        Ok(())
     }
 }
