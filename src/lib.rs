@@ -68,6 +68,7 @@ impl Cache {
     /// Returns `None` if the entry's timestamp is older than `entry_ttl`.
     pub fn get<T: DeserializeOwned>(&self, key: &str) -> Option<T> {
         self.entries.get(key).and_then(|entry| {
+            // TODO: Handle unwrap of future durations where behavior is ambiguous.
             let diff = SystemTime::now().duration_since(entry.timestamp).unwrap();
             if diff.lt(&self.entry_ttl) {
                 serde_json::from_value(entry.data.clone()).ok()
@@ -109,6 +110,7 @@ impl Cache {
 
     /// Write the in-memory cache state to the filesystem.
     pub fn flush(&self) -> Result<()> {
+        // TODO: Consider writing file in more atomic fashion; write to temporary file and then rename to destination, to avoid corruption in the case where the file contents are truncated and the write fails midway.
         let mut file = fs::File::create(&self.path)?;
         file.write_all(serde_json::to_string(&self.entries)?.as_bytes())?;
         Ok(())
