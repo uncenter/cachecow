@@ -1,6 +1,6 @@
 # cachecow
 
-A tiny JSON key-value filesystem cache implementation.
+A stupid simple JSON key-value filesystem cache.
 
 ## Usage
 
