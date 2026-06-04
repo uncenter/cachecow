@@ -45,11 +45,7 @@ pub struct Cache {
 impl Cache {
     /// Initializes a new cache. Entries are timestamped and saved to the specified path as JSON.
     /// Entries are invalidated when older than `entry_ttl`.
-    pub fn new(
-        path: PathBuf,
-        entry_ttl: Duration,
-        flush_policy: FlushPolicy,
-    ) -> Result<Self> {
+    pub fn new(path: PathBuf, entry_ttl: Duration, flush_policy: FlushPolicy) -> Result<Self> {
         let entries = match fs::read_to_string(&path) {
             Ok(contents) => serde_json::from_str(&contents).unwrap_or_default(),
             Err(_) => {
