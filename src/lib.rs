@@ -29,7 +29,7 @@ pub enum FlushPolicy {
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct Entry {
+struct Entry {
     timestamp: SystemTime,
     data: serde_json::Value,
 }
