@@ -80,16 +80,19 @@ impl Cache {
 
     /// Retrieve a keyed value from the cache store, invoking `fetch` to populate it on a miss.
     /// If [`FlushPolicy::Auto`] is set, the cache is flushed to disk after a miss.
-    pub fn get_or<T, F>(&mut self, key: &str, fetch: F) -> Result<T>
+    ///
+    /// The closure may return any error type `E` as long as `E: From<`[`Error`]`>`, so that cache-internal errors can be represented within the caller's error type.
+    pub fn get_or<T, F, E>(&mut self, key: &str, fetch: F) -> std::result::Result<T, E>
     where
         T: Serialize + DeserializeOwned,
-        F: FnOnce() -> Result<T>,
+        F: FnOnce() -> std::result::Result<T, E>,
+        E: From<Error>,
     {
         if let Some(data) = self.get::<T>(key) {
             return Ok(data);
         }
         let value = fetch()?;
-        self.set(key, value)
+        self.set(key, value).map_err(E::from)
     }
 
     /// Set a value under a key in the cache store, returning that same value.
