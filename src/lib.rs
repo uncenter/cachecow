@@ -38,18 +38,15 @@ pub struct Entry {
 pub struct Cache {
     path: PathBuf,
     entries: HashMap<String, Entry>,
-    refresh: bool,
     entry_ttl: Duration,
     flush_policy: FlushPolicy,
 }
 
 impl Cache {
     /// Initializes a new cache. Entries are timestamped and saved to the specified path as JSON.
-    /// Enable `refresh` to "hard refresh" the cache and always invalidate entries when requested.
-    /// Entries will otherwise only be invalidated when older than the specified max duration.
+    /// Entries are invalidated when older than `entry_ttl`.
     pub fn new(
         path: PathBuf,
-        refresh: bool,
         entry_ttl: Duration,
         flush_policy: FlushPolicy,
     ) -> Result<Self> {
@@ -66,18 +63,14 @@ impl Cache {
         Ok(Cache {
             path,
             entries,
-            refresh,
             entry_ttl,
             flush_policy,
         })
     }
 
     /// Retrieve a keyed value from the cache store.
-    /// Returns `None` if [`Cache::refresh`] is enabled or if the entry's timestamp is older than the specified maximum duration of [`Cache::entry_duration_seconds`].
+    /// Returns `None` if the entry's timestamp is older than `entry_ttl`.
     pub fn get<T: DeserializeOwned>(&self, key: &str) -> Option<T> {
-        if self.refresh {
-            return None;
-        }
         self.entries.get(key).and_then(|entry| {
             let diff = SystemTime::now().duration_since(entry.timestamp).unwrap();
             if diff.lt(&self.entry_ttl) {
@@ -123,5 +116,11 @@ impl Cache {
         let mut file = fs::File::create(&self.path)?;
         file.write_all(serde_json::to_string(&self.entries)?.as_bytes())?;
         Ok(())
+    }
+
+    /// Clear all entries from the cache and flush to disk.
+    pub fn clear(&mut self) -> Result<()> {
+        self.entries.clear();
+        self.flush()
     }
 }
