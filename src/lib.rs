@@ -81,7 +81,7 @@ impl Cache {
     /// If [`FlushPolicy::Auto`] is set, the cache is flushed to disk after a miss.
     pub fn get_or<T, F>(&mut self, key: &str, fetch: F) -> Result<T>
     where
-        T: Serialize + DeserializeOwned + Clone,
+        T: Serialize + DeserializeOwned,
         F: FnOnce() -> Result<T>,
     {
         if let Some(data) = self.get::<T>(key) {
