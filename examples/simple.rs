@@ -1,13 +1,15 @@
-use cachecow::Cache;
+use std::time::Duration;
 
-const ONE_DAY_IN_SECONDS: u64 = 24 * 60 * 60;
+use cachecow::{Cache, FlushPolicy};
+
+const ONE_DAY: Duration = Duration::from_secs(24 * 60 * 60);
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let cache_path = user_dirs::cache_dir()?.join("cachecow").join("cache.json");
 
-    let mut cache = Cache::new(cache_path.clone(), false, ONE_DAY_IN_SECONDS)?;
+    let mut cache = Cache::new(cache_path.clone(), false, ONE_DAY, FlushPolicy::Auto)?;
 
-    cache.save("hello", "world".to_string())?;
+    cache.set("hello", "world".to_string())?;
     assert_eq!(cache.get::<String>("hello"), Some("world".to_string()));
 
     assert_eq!(
@@ -15,7 +17,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         "123".to_string()
     );
 
-    let refreshed_cache = Cache::new(cache_path, true, ONE_DAY_IN_SECONDS)?;
+    let refreshed_cache = Cache::new(cache_path, true, ONE_DAY, FlushPolicy::Auto)?;
 
     assert_eq!(refreshed_cache.get::<String>("hello"), None);
 

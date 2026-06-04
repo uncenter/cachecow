@@ -4,7 +4,7 @@ use std::{
     fs,
     io::Write,
     path::PathBuf,
-    time::SystemTime,
+    time::{Duration, SystemTime},
 };
 
 #[derive(Debug, thiserror::Error)]
@@ -17,25 +17,42 @@ pub enum Error {
 
 pub type Result<T> = std::result::Result<T, Error>;
 
+/// Controls whether mutating operations ([`Cache::set`], [`Cache::get_or`]) automatically
+/// flush the cache to disk, or leave flushing to the caller via [`Cache::flush`].
+#[derive(Debug, Clone, PartialEq, Default)]
+pub enum FlushPolicy {
+    /// Flush to disk after every write.
+    Auto,
+    /// Only flush when [`Cache::flush`] is called explicitly.
+    #[default]
+    Manual,
+}
+
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Entry {
     timestamp: SystemTime,
     data: serde_json::Value,
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Debug)]
 pub struct Cache {
     path: PathBuf,
     entries: HashMap<String, Entry>,
     refresh: bool,
-    entry_duration_seconds: u64,
+    entry_ttl: Duration,
+    flush_policy: FlushPolicy,
 }
 
 impl Cache {
     /// Initializes a new cache. Entries are timestamped and saved to the specified path as JSON.
     /// Enable `refresh` to "hard refresh" the cache and always invalidate entries when requested.
     /// Entries will otherwise only be invalidated when older than the specified max duration.
-    pub fn new(path: PathBuf, refresh: bool, entry_duration_seconds: u64) -> Result<Self> {
+    pub fn new(
+        path: PathBuf,
+        refresh: bool,
+        entry_ttl: Duration,
+        flush_policy: FlushPolicy,
+    ) -> Result<Self> {
         let entries = match fs::read_to_string(&path) {
             Ok(contents) => serde_json::from_str(&contents).unwrap_or_default(),
             Err(_) => {
@@ -50,7 +67,8 @@ impl Cache {
             path,
             entries,
             refresh,
-            entry_duration_seconds,
+            entry_ttl,
+            flush_policy,
         })
     }
 
@@ -61,11 +79,8 @@ impl Cache {
             return None;
         }
         self.entries.get(key).and_then(|entry| {
-            let diff = SystemTime::now()
-                .duration_since(entry.timestamp)
-                .unwrap()
-                .as_secs();
-            if diff < self.entry_duration_seconds {
+            let diff = SystemTime::now().duration_since(entry.timestamp).unwrap();
+            if diff.lt(&self.entry_ttl) {
                 serde_json::from_value(entry.data.clone()).ok()
             } else {
                 None
@@ -73,7 +88,8 @@ impl Cache {
         })
     }
 
-    /// Wrapper of the [`Cache::get`] function, accepting a closure for retrieving and then setting the value if the value is not present already or invalid.
+    /// Retrieve a keyed value from the cache store, invoking `fetch` to populate it on a miss.
+    /// If [`FlushPolicy::Auto`] is set, the cache is flushed to disk after a miss.
     pub fn get_or<T, F>(&mut self, key: &str, fetch: F) -> Result<T>
     where
         T: Serialize + DeserializeOwned + Clone,
@@ -86,7 +102,8 @@ impl Cache {
         self.set(key, value)
     }
 
-    /// Set a value under a key to the cache store, returning that same value.
+    /// Set a value under a key in the cache store, returning that same value.
+    /// If [`FlushPolicy::Auto`] is set, the cache is flushed to disk after insertion.
     pub fn set<T: Serialize>(&mut self, key: &str, value: T) -> Result<T> {
         self.entries.insert(
             key.to_string(),
@@ -95,18 +112,14 @@ impl Cache {
                 data: serde_json::to_value(&value)?,
             },
         );
+        if self.flush_policy == FlushPolicy::Auto {
+            self.flush()?;
+        }
         Ok(value)
     }
 
-    /// Set a value under a key to the cache store and immediately write the cache to the filesystem.
-    /// This is a convenience wrapper for using [`Cache::set`] followed by [`Cache::write_to_file`].
-    pub fn save<T: Serialize>(&mut self, key: &str, value: T) -> Result<()> {
-        self.set(key, value)?;
-        self.write_to_file()
-    }
-
-    /// Save the cache to the store path (specified at cache initialization).
-    fn write_to_file(&self) -> Result<()> {
+    /// Write the in-memory cache state to the filesystem.
+    pub fn flush(&self) -> Result<()> {
         let mut file = fs::File::create(&self.path)?;
         file.write_all(serde_json::to_string(&self.entries)?.as_bytes())?;
         Ok(())
