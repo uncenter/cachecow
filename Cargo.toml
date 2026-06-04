@@ -3,6 +3,7 @@ name = "cachecow"
 version = "0.1.1"
 edition = "2024"
 description = "A stupid simple JSON key-value filesystem cache."
+repository = "https://github.com/uncenter/cachecow"
 license = "MIT"
 
 [dependencies]
