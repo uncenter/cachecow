@@ -2,6 +2,8 @@
 name = "cachecow"
 version = "0.1.0"
 edition = "2024"
+description = "A stupid simple JSON key-value filesystem cache."
+license = "MIT"
 
 [dependencies]
 serde = { version = "1.0.219", features = ["derive"] }
