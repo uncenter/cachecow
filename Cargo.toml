@@ -12,3 +12,4 @@ thiserror = "2"
 
 [dev-dependencies]
 user_dirs = "0.2.0"
+reqwest = { version = "0.12", features = ["blocking"] }

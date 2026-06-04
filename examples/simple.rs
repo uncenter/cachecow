@@ -12,8 +12,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     cache.set("hello", "world".to_string())?;
     assert_eq!(cache.get::<String>("hello"), Some("world".to_string()));
 
-    assert_eq!(cache.get_or("foo", || Ok(123))?, 123);
-
     cache.clear()?;
     assert_eq!(cache.get::<String>("hello"), None);
 
