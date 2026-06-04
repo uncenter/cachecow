@@ -9,7 +9,7 @@ Create a cache instance:
 ```rs
 let mut cache = cachecow::Cache::new(
     user_dirs::cache_dir()?.join("my-app").join("cache.json"), // path to cache location
-    std::time::Duration::from_secs(24 * 60 * 60),                                              // duration in seconds for entries to remain valid
+    std::time::Duration::from_secs(24 * 60 * 60),              // duration in seconds for entries to remain valid
     cachecow::FlushPolicy::Auto,                               // flush to disk after every write
 )?;
 ```
