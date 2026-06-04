@@ -9,7 +9,6 @@ use std::{
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Entry {
-    // TODO: Simplify timestamp; storing full SystemTime struct/object is inefficient compared to just the (nano)?seconds as integer.
     timestamp: SystemTime,
     data: serde_json::Value,
 }
@@ -23,7 +22,9 @@ pub struct Cache {
 }
 
 impl Cache {
-    /// Initializes a new cache, with timestamped data entries saved to the specified path as JSON.
+    /// Initializes a new cache. Entries are imestamped and saved to the specified path as JSON.
+    /// Enable `refresh` to "hard refresh" the cache and always invalidate entries when requested.
+    /// Entries will otherwise only be invalidated when older than the specified max duration.
     pub fn new(path: PathBuf, refresh: bool, entry_duration_seconds: u64) -> Self {
         let entries = match fs::read_to_string(&path) {
             Ok(contents) => serde_json::from_str(&contents).unwrap_or_default(),
@@ -41,7 +42,8 @@ impl Cache {
         }
     }
 
-    /// Retrieve a keyed value from the cache store, returning `None` if hard refresh is enabled in the cache settings or if the entry's timestamp is older than the specified maximum duration.
+    /// Retrieve a keyed value from the cache store.
+    /// Returns `None` if [`Cache::refresh`] is enabled or if the entry's timestamp is older than the specified maximum duration of [`Cache::entry_duration_seconds`].
     pub fn get<T: DeserializeOwned>(&self, key: &str) -> Option<T> {
         if self.refresh {
             return None;
@@ -89,8 +91,8 @@ impl Cache {
         Ok(value)
     }
 
-    /// Set a value under a key to the cache store, immediately writing the cache to the filesystem.
-    /// This is a convenience wrapper for [`Cache::set`] and [`Cache::save_to_file`].
+    /// Set a value under a key to the cache store and immediately write the cache to the filesystem.
+    /// This is a convenience wrapper for using [`Cache::set`] followed by [`Cache::write_to_file`].
     pub fn save<T, E>(&mut self, key: &str, value: T) -> Result<(), E>
     where
         T: Serialize,
