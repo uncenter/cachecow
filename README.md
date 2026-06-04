@@ -33,7 +33,9 @@ cache.get::<String>("hello"); // Some("world")
 Retrieve an entry from the cache, or set and return a default value in case of a miss:
 
 ```rs
-cache.get_or("foo", || Ok(123))?; // 123
+cache.get_or("response", || -> Result<_, MyError> {
+    Ok(reqwest::blocking::get("https://example.org")?.text()?)
+})?;
 ```
 
 Empty the cache:
